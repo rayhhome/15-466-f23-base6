@@ -2,6 +2,8 @@
 
 #include "Connection.hpp"
 
+#include <cstdint>
+#include <cstdio>
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
@@ -85,11 +87,11 @@ Player *Game::spawn_player() {
 	player.position.x = glm::mix(ArenaMin.x + 2.0f * PlayerRadius, ArenaMax.x - 2.0f * PlayerRadius, 0.4f + 0.2f * mt() / float(mt.max()));
 	player.position.y = glm::mix(ArenaMin.y + 2.0f * PlayerRadius, ArenaMax.y - 2.0f * PlayerRadius, 0.4f + 0.2f * mt() / float(mt.max()));
 
-	do {
-		player.color.r = mt() / float(mt.max());
-		player.color.g = mt() / float(mt.max());
-		player.color.b = mt() / float(mt.max());
-	} while (player.color == glm::vec3(0.0f));
+	if (next_player_number % 2 == 0) {
+		player.color = PlayerColor1;
+	} else {
+		player.color = PlayerColor2;
+	}
 	player.color = glm::normalize(player.color);
 
 	player.name = "Player " + std::to_string(next_player_number++);
@@ -109,6 +111,20 @@ void Game::remove_player(Player *player) {
 	assert(found);
 }
 
+Element *Game::spawn_element() {
+	elements.emplace_back();
+	Element &element = elements.back();
+
+	//random point in the middle area of the arena:
+	element.position.x = glm::mix(ArenaMin.x + 2.0f * ElementRadius, ArenaMax.x - 2.0f * ElementRadius, 0.4f + 0.2f * mt() / float(mt.max()));
+	element.position.y = glm::mix(ArenaMin.y + 2.0f * ElementRadius, ArenaMax.y - 2.0f * ElementRadius, 0.4f + 0.2f * mt() / float(mt.max()));
+
+	element.color = glm::vec3(1.0f, 1.0f, 1.0f);
+	element.color = glm::normalize(element.color);
+
+	return &element;
+}
+
 void Game::update(float elapsed) {
 	//position/velocity update:
 	for (auto &p : players) {
@@ -118,6 +134,16 @@ void Game::update(float elapsed) {
 		if (p.controls.down.pressed) dir.y -= 1.0f;
 		if (p.controls.up.pressed) dir.y += 1.0f;
 
+		if (p.jump_cooldown > 0.0f) {
+			p.jump_cooldown -= elapsed;
+			if (p.jump_cooldown < 0.0f) p.jump_cooldown = 0.0f;
+		}
+
+		if ((p.controls.jump.pressed) && (p.jump_cooldown == 0.0f)) {
+			p.velocity = p.direction * PlayerJumpSpeed;
+			p.jump_cooldown = 2.0f;
+		}
+
 		if (dir == glm::vec2(0.0f)) {
 			//no inputs: just drift to a stop
 			float amt = 1.0f - std::pow(0.5f, elapsed / (PlayerAccelHalflife * 2.0f));
@@ -125,6 +151,7 @@ void Game::update(float elapsed) {
 		} else {
 			//inputs: tween velocity to target direction
 			dir = glm::normalize(dir);
+			p.direction = dir;
 
 			float amt = 1.0f - std::pow(0.5f, elapsed / PlayerAccelHalflife);
 
@@ -197,6 +224,7 @@ void Game::send_state_message(Connection *connection_, Player *connection_player
 	connection.send(uint8_t(0));
 	connection.send(uint8_t(0));
 	connection.send(uint8_t(0));
+	connection.send(uint8_t(0));
 	size_t mark = connection.send_buffer.size(); //keep track of this position in the buffer
 
 
@@ -205,6 +233,7 @@ void Game::send_state_message(Connection *connection_, Player *connection_player
 		connection.send(player.position);
 		connection.send(player.velocity);
 		connection.send(player.color);
+		connection.send(player.jump_cooldown);
 	
 		//NOTE: can't just 'send(name)' because player.name is not plain-old-data type.
 		//effectively: truncates player name to 255 chars
@@ -223,9 +252,10 @@ void Game::send_state_message(Connection *connection_, Player *connection_player
 
 	//compute the message size and patch into the message header:
 	uint32_t size = uint32_t(connection.send_buffer.size() - mark);
-	connection.send_buffer[mark-3] = uint8_t(size);
-	connection.send_buffer[mark-2] = uint8_t(size >> 8);
-	connection.send_buffer[mark-1] = uint8_t(size >> 16);
+	connection.send_buffer[mark-4] = uint8_t(size);
+	connection.send_buffer[mark-3] = uint8_t(size >> 8);
+	connection.send_buffer[mark-2] = uint8_t(size >> 16);
+	connection.send_buffer[mark-1] = uint8_t(size >> 24);
 }
 
 bool Game::recv_state_message(Connection *connection_) {
@@ -233,21 +263,22 @@ bool Game::recv_state_message(Connection *connection_) {
 	auto &connection = *connection_;
 	auto &recv_buffer = connection.recv_buffer;
 
-	if (recv_buffer.size() < 4) return false;
+	if (recv_buffer.size() < 5) return false;
 	if (recv_buffer[0] != uint8_t(Message::S2C_State)) return false;
-	uint32_t size = (uint32_t(recv_buffer[3]) << 16)
+	uint32_t size = (uint32_t(recv_buffer[4]) << 24)
+								| (uint32_t(recv_buffer[3]) << 16)
 	              | (uint32_t(recv_buffer[2]) << 8)
 	              |  uint32_t(recv_buffer[1]);
 	uint32_t at = 0;
 	//expecting complete message:
-	if (recv_buffer.size() < 4 + size) return false;
+	if (recv_buffer.size() < 5 + size) return false;
 
 	//copy bytes from buffer and advance position:
 	auto read = [&](auto *val) {
 		if (at + sizeof(*val) > size) {
 			throw std::runtime_error("Ran out of bytes reading state message.");
 		}
-		std::memcpy(val, &recv_buffer[4 + at], sizeof(*val));
+		std::memcpy(val, &recv_buffer[5 + at], sizeof(*val));
 		at += sizeof(*val);
 	};
 
@@ -260,6 +291,7 @@ bool Game::recv_state_message(Connection *connection_) {
 		read(&player.position);
 		read(&player.velocity);
 		read(&player.color);
+		read(&player.jump_cooldown);
 		uint8_t name_len;
 		read(&name_len);
 		//n.b. would probably be more efficient to directly copy from recv_buffer, but I think this is clearer:
@@ -274,7 +306,7 @@ bool Game::recv_state_message(Connection *connection_) {
 	if (at != size) throw std::runtime_error("Trailing data in state message.");
 
 	//delete message from buffer:
-	recv_buffer.erase(recv_buffer.begin(), recv_buffer.begin() + 4 + size);
+	recv_buffer.erase(recv_buffer.begin(), recv_buffer.begin() + 5 + size);
 
 	return true;
 }

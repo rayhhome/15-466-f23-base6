@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <glm/glm.hpp>
 
 #include <string>
@@ -41,18 +42,31 @@ struct Player {
 	//player state (sent from server):
 	glm::vec2 position = glm::vec2(0.0f, 0.0f);
 	glm::vec2 velocity = glm::vec2(0.0f, 0.0f);
+	glm::vec2 direction = glm::vec2(1.0f, 0.0f);
 
 	glm::vec3 color = glm::vec3(1.0f, 1.0f, 1.0f);
+	float jump_cooldown = 0.0f;
 	std::string name = "";
+};
+
+//state of one touch element:
+struct Element {
+	glm::vec2 position = glm::vec2(0.0f, 0.0f);
+	glm::vec2 velocity = glm::vec2(0.0f, 0.0f);
+	glm::vec3 color = glm::vec3(1.0f, 1.0f, 1.0f);
 };
 
 struct Game {
 	std::list< Player > players; //(using list so they can have stable addresses)
+	std::vector< Element > elements; //(using vector so they can be indexed)
 	Player *spawn_player(); //add player the end of the players list (may also, e.g., play some spawn anim)
 	void remove_player(Player *); //remove player from game (may also, e.g., play some despawn anim)
+	Element *spawn_element();
 
 	std::mt19937 mt; //used for spawning players
 	uint32_t next_player_number = 1; //used for naming players
+	uint32_t team1_points = 0;
+	uint32_t team2_points = 0;
 
 	Game();
 
@@ -64,14 +78,21 @@ struct Game {
 	inline static constexpr float Tick = 1.0f / 30.0f;
 
 	//arena size:
-	inline static constexpr glm::vec2 ArenaMin = glm::vec2(-0.75f, -1.0f);
-	inline static constexpr glm::vec2 ArenaMax = glm::vec2( 0.75f,  1.0f);
+	inline static constexpr glm::vec2 ArenaMin = glm::vec2(-1.0f, -1.0f);
+	inline static constexpr glm::vec2 ArenaMax = glm::vec2( 1.00f,  1.0f);
 
 	//player constants:
 	inline static constexpr float PlayerRadius = 0.06f;
-	inline static constexpr float PlayerSpeed = 2.0f;
+	inline static constexpr float PlayerSpeed = 1.25f;
 	inline static constexpr float PlayerAccelHalflife = 0.25f;
-	
+	inline static constexpr float PlayerJumpSpeed = 2.0f;
+	inline static constexpr float PlayerCoolDown = 1.0f;
+	inline static constexpr glm::vec3 PlayerColor1 = glm::vec3(1.0f, 0.0f, 1.0f);
+	inline static constexpr glm::vec3 PlayerColor2 = glm::vec3(0.0f, 1.0f, 1.0f);
+
+	//touch element constants:
+	inline static constexpr float ElementRadius = 0.05f;
+	inline static constexpr float ElementAccelHalflife = 0.2f;
 
 	//---- communication helpers ----
 

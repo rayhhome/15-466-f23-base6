@@ -112,7 +112,7 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		return ret;
 	}();
 
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClearColor(0.1f, 0.1f, 0.3f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	
@@ -147,25 +147,51 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 				glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 		};
 
-		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
-		lines.draw(glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0x00, 0xff, 0xff));
+		draw_text(glm::vec2(360, 360), "Touch the Game!", 0.0f);
+
+		//draw stage:
+		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		lines.draw(glm::vec3(Game::ArenaMin.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMin.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		lines.draw(glm::vec3(Game::ArenaMax.x, Game::ArenaMin.y, 0.0f), glm::vec3(Game::ArenaMax.x, Game::ArenaMax.y, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		float xofs = (5.0f / scale) / drawable_size.x;
+		float yofs = (5.0f / scale) / drawable_size.y;
+		float newxmin = Game::ArenaMin.x - xofs;
+		float newymin = Game::ArenaMin.y - yofs;
+		float newxmax = Game::ArenaMax.x + xofs;
+		float newymax = Game::ArenaMax.y + yofs;
+		lines.draw(glm::vec3(newxmin, newymin, 0.0f), glm::vec3(newxmax, newymin, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		lines.draw(glm::vec3(newxmin, newymax, 0.0f), glm::vec3(newxmax, newymax, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		lines.draw(glm::vec3(newxmin, newymin, 0.0f), glm::vec3(newxmin, newymax, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
+		lines.draw(glm::vec3(newxmax, newymin, 0.0f), glm::vec3(newxmax, newymax, 0.0f), glm::u8vec4(0xff, 0xff, 0xff, 0xff));
 
 		for (auto const &player : game.players) {
 			glm::u8vec4 col = glm::u8vec4(player.color.x*255, player.color.y*255, player.color.z*255, 0xff);
 			if (&player == &game.players.front()) {
 				//mark current player (which server sends first):
-				lines.draw(
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f,-0.5f), 0.0f),
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f, 0.5f), 0.0f),
-					col
-				);
-				lines.draw(
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, 0.5f), 0.0f),
-					glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f,-0.5f), 0.0f),
-					col
-				);
+				if (player.jump_cooldown == 0.0f) {
+					lines.draw(
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, 0.0f), 0.0f),
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f, 0.0f), 0.0f),
+						col
+					);
+					lines.draw(
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2(0.0f,  0.5f), 0.0f),
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2(0.0f, -0.5f), 0.0f),
+						col
+					);
+				} else {
+					lines.draw(
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f, -0.5f), 0.0f),
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f,  0.5f), 0.0f),
+						col
+					);
+					lines.draw(
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2(-0.5f,  0.5f), 0.0f),
+						glm::vec3(player.position + Game::PlayerRadius * glm::vec2( 0.5f, -0.5f), 0.0f),
+						col
+					);
+				}
 			}
 			for (uint32_t a = 0; a < circle.size(); ++a) {
 				lines.draw(

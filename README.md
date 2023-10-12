@@ -1,10 +1,10 @@
-# (TODO: your game's title)
+# Touch the Game (This game is unfinished)
 
-Author: (TODO: your name)
+Author: Sirui Huang
 
-Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
+Design: Try to collide other players into walls to gain points.
 
-Networking: (TODO: How does your game implement client/server multiplayer? What messages are transmitted? Where in the code?)
+Networking: Messages are sent to players regarding their positions, their points, their points, and whether they can now use the dash ability.
 
 Screen Shot:
 
@@ -12,9 +12,7 @@ Screen Shot:
 
 How To Play:
 
-(TODO: describe the controls and (if needed) goals/strategy.)
-
-Sources: (TODO: list a source URL for any assets you did not create yourself. Make sure you have a license for the asset.)
+ASDW to move, space to dash.
 
 This game was built with [NEST](NEST.md).
 
