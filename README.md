@@ -1,4 +1,4 @@
-# Touch the Game (This game is unfinished)
+# Touchy the Game (This game is unfinished)
 
 Author: Sirui Huang
 
